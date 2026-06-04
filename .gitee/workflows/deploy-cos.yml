@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VERCEL: ''
+          VERCEL: 'true'
 
       - name: Deploy to Tencent COS
         run: |
