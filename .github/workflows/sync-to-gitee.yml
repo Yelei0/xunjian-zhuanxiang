@@ -10,14 +10,17 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Mirror GitHub to Gitee
-        uses: Yikun/hub-mirror-action@master
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          src: github/Yelei0/xunjian-zhuanxiang
-          dst: gitee/ye-lei-boli077/xunjian-zhuanxiang
-          dst_key: ""
-          dst_token: ${{ secrets.GITEE_TOKEN }}
-          force_update: true
+          fetch-depth: 0
+
+      - name: Push to Gitee
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add gitee "https://ye-lei-boli077:${{ secrets.GITEE_TOKEN }}@gitee.com/ye-lei-boli077/xunjian-zhuanxiang.git"
+          git push gitee main --force
 
   deploy-pages:
     needs: sync
@@ -25,7 +28,8 @@ jobs:
     steps:
       - name: Trigger Gitee Pages deploy
         run: |
+          sleep 10
           curl -X POST \
             "https://gitee.com/api/v5/repos/ye-lei-boli077/xunjian-zhuanxiang/pages/builds" \
             -H "Content-Type: application/json" \
-            -d '{"access_token": "${{ secrets.GITEE_TOKEN }}"}'
+            -d "{\"access_token\": \"${{ secrets.GITEE_TOKEN }}\"}"
