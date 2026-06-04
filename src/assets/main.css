@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #0F172A;
+    background: #F1F5F9;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Glass card */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/30 rounded-2xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-card-hover {
+    @apply transition-all duration-300 cursor-pointer;
+  }
+  .glass-card-hover:hover {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+  }
+
+  /* Subtle card */
+  .subtle-card {
+    @apply bg-white rounded-2xl border border-slate-100;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Brand button */
+  .btn-brand {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer;
+    background: #2563EB;
+    color: #fff;
+  }
+  .btn-brand:hover {
+    background: #1D4ED8;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+  }
+  .btn-brand:active {
+    transform: scale(0.97);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer;
+    background: transparent;
+    color: #475569;
+    border: 1px solid transparent;
+  }
+  .btn-ghost:hover {
+    background: #F1F5F9;
+    color: #0F172A;
+    border-color: #E2E8F0;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer;
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+  }
+  .btn-danger:hover {
+    background: #FEE2E2;
+  }
+
+  /* Input / Select */
+  .input-field {
+    @apply w-full px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    color: #0F172A;
+    outline: none;
+  }
+  .input-field:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    background: #fff;
+  }
+  .input-field::placeholder {
+    color: #94A3B8;
+  }
+
+  .select-field {
+    @apply w-full px-3.5 py-2.5 rounded-xl text-sm transition-all duration-200 appearance-none cursor-pointer;
+    background: #F8FAFC url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394A3B8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") right 0.5rem center/1.5rem no-repeat;
+    border: 1px solid #E2E8F0;
+    color: #0F172A;
+    outline: none;
+  }
+  .select-field:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    background-color: #fff;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide;
+  }
+  .badge-success { background: #ECFDF5; color: #065F46; }
+  .badge-warn { background: #FFFBEB; color: #92400E; }
+  .badge-danger { background: #FEF2F2; color: #991B1B; }
+  .badge-info { background: #EFF6FF; color: #1E40AF; }
+  .badge-neutral { background: #F1F5F9; color: #475569; }
+
+  /* Section title */
+  .section-title {
+    @apply text-sm font-semibold tracking-wide uppercase;
+    color: #64748B;
+    letter-spacing: 0.05em;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* Glass sidebar specific */
+.sidebar-glass {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
