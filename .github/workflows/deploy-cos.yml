@@ -1,0 +1,63 @@
+name: Deploy to Tencent COS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          VERCEL: ''
+
+      - name: Deploy to Tencent COS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.COS_SECRET_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.COS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ap-guangzhou
+        run: |
+          pip install awscli --quiet
+          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID --profile cos
+          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY --profile cos
+          aws configure set region $AWS_DEFAULT_REGION --profile cos
+
+          BUCKET="${{ secrets.COS_BUCKET }}"
+          ENDPOINT="cos.ap-guangzhou.myqcloud.com"
+
+          # Sync static assets with long cache
+          aws s3 sync dist/ "s3://${BUCKET}" \
+            --profile cos \
+            --endpoint-url "https://${ENDPOINT}" \
+            --delete \
+            --cache-control "max-age=31536000" \
+            --exclude "index.html"
+
+          # Upload index.html with no-cache
+          aws s3 cp dist/index.html "s3://${BUCKET}/index.html" \
+            --profile cos \
+            --endpoint-url "https://${ENDPOINT}" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+
+          echo "Deployed to COS: ${BUCKET}"
