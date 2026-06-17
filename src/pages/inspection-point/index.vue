@@ -98,7 +98,7 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showFormModal" class="modal-overlay" @click.self="showFormModal = false">
-      <div class="modal-content modal-large" data-req-id="3">
+      <div class="modal-content modal-large" :data-req-id="activeFormReqId">
         <div class="modal-header">
           <h3>{{ isEdit ? '编辑巡检点位' : '新增巡检点位' }}</h3>
           <button class="btn-close" @click="showFormModal = false">
@@ -136,14 +136,14 @@
                 <div class="map-container" :class="{ 'active': formData.parkArea === '物流园区' || !formData.parkArea }">
                   <img
                     v-if="formData.parkArea === '物流园区' || !formData.parkArea"
-                    src="/images/park.jpg"
+                    :src="parkImage"
                     alt="物流园区地图"
                     class="map-image"
                     @load="onMapLoad"
                   />
                   <img
                     v-else
-                    src="/images/jieshouzhan.jpg"
+                    :src="stationImage"
                     alt="接收站地图"
                     class="map-image"
                     @load="onMapLoad"
@@ -246,6 +246,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
+const assetUrl = (file: string) => `${import.meta.env.BASE_URL}images/${file}`
+const parkImage = assetUrl('park.jpg')
+const stationImage = assetUrl('jieshouzhan.jpg')
+
 // 筛选条件
 const filters = reactive({
   pointName: '',
@@ -310,9 +314,15 @@ function handleReset() {
 
 // 监听需求标注弹窗触发
 function handleAnnotationModal(e: CustomEvent) {
-  const { modalId } = e.detail
+  const { modalId, reqId } = e.detail
   if (modalId === 'formModal') {
-    showFormModal.value = true
+    if (reqId === 4 && tableData.value.length > 0) {
+      openEditModal(tableData.value[0])
+    } else if (reqId === 5) {
+      openAddModal()
+    } else {
+      openAddModal()
+    }
   } else if (modalId === 'codeModal') {
     showCodeModal.value = true
   } else if (modalId === 'deleteModal') {
@@ -331,6 +341,7 @@ onUnmounted(() => {
 // 表单弹窗
 const showFormModal = ref(false)
 const isEdit = ref(false)
+const activeFormReqId = ref(3)
 let editItemId: number | null = null
 
 const formData = reactive({
@@ -346,6 +357,7 @@ const otherPoints = computed(() => {
 
 function openAddModal() {
   isEdit.value = false
+  activeFormReqId.value = 3
   editItemId = null
   formData.pointName = ''
   formData.parkArea = ''
@@ -355,6 +367,7 @@ function openAddModal() {
 
 function openEditModal(item: InspectionPoint) {
   isEdit.value = true
+  activeFormReqId.value = 4
   editItemId = item.id
   formData.pointName = item.pointName
   formData.parkArea = item.parkArea
@@ -691,15 +704,15 @@ input[type="checkbox"] {
 /* 弹窗 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: var(--layout-topbar-height, 60px);
+  left: var(--layout-sidebar-width, 240px);
+  right: var(--layout-panel-width, 0px);
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--layout-modal-z, 60);
 }
 
 .modal-content {

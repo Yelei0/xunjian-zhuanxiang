@@ -29,3 +29,26 @@ assert(
   annotation.includes('只扫描当前页面根节点') && annotation.includes('重复编号只允许代表同一需求的多个入口'),
   'annotation-panel must document page-scoped scanning and duplicate-id handling'
 )
+
+assert(
+  annotation.includes('prd-edit-mode') &&
+    annotation.includes('triple-click-title-edit') &&
+    annotation.includes('__prd/update') &&
+    annotation.includes('import.meta.env.DEV'),
+  'annotation-panel must document dev-only PRD editing from the requirement panel'
+)
+
+assert(
+  prd.includes('prd-editable-blocks') &&
+    prd.includes('stable-heading-and-id') &&
+    prd.includes('PRD.md'),
+  'chemical-prd-generator must keep PRD blocks stable for panel editing'
+)
+
+assert(
+  proto.includes('prd-driven-annotation') &&
+    proto.includes('do-not-hardcode-requirement-copy') &&
+    proto.includes('data-req-page') &&
+    proto.includes('data-req-id'),
+  'chemical-proto-generator must keep generated pages compatible with PRD-driven editable annotation'
+)

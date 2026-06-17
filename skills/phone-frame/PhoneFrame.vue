@@ -22,6 +22,8 @@
 
 <style scoped>
 .phone-frame-wrapper {
+  position: relative;
+  isolation: isolate;
   width: 375px;
   height: 780px;
   border: 2px solid #333;
@@ -63,6 +65,7 @@
 }
 
 .phone-content {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;

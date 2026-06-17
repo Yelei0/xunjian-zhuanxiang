@@ -94,7 +94,7 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showFormModal" class="modal-overlay" @click.self="showFormModal = false">
-      <div class="modal-content" data-req-id="3">
+      <div class="modal-content" :data-req-id="activeFormReqId">
         <div class="modal-header">
           <h3>{{ isEdit ? '编辑巡检类型' : '新增巡检类型' }}</h3>
           <button class="btn-close" @click="showFormModal = false">
@@ -207,9 +207,13 @@ function handleReset() {
 
 // 监听需求标注弹窗触发
 function handleAnnotationModal(e: CustomEvent) {
-  const { modalId } = e.detail
+  const { modalId, reqId } = e.detail
   if (modalId === 'formModal') {
-    showFormModal.value = true
+    if (reqId === 4 && tableData.value.length > 0) {
+      openEditModal(tableData.value[0])
+    } else {
+      openAddModal()
+    }
   } else if (modalId === 'deleteModal') {
     showDeleteModal.value = true
   }
@@ -226,6 +230,7 @@ onUnmounted(() => {
 // 表单弹窗
 const showFormModal = ref(false)
 const isEdit = ref(false)
+const activeFormReqId = ref(3)
 let editItemId: number | null = null
 
 const formData = reactive({
@@ -235,6 +240,7 @@ const formData = reactive({
 
 function openAddModal() {
   isEdit.value = false
+  activeFormReqId.value = 3
   editItemId = null
   formData.typeName = ''
   formData.parkArea = ''
@@ -243,6 +249,7 @@ function openAddModal() {
 
 function openEditModal(item: InspectionType) {
   isEdit.value = true
+  activeFormReqId.value = 4
   editItemId = item.id
   formData.typeName = item.typeName
   formData.parkArea = item.parkArea
@@ -525,15 +532,15 @@ input[type="checkbox"] {
 /* 弹窗 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: var(--layout-topbar-height, 60px);
+  left: var(--layout-sidebar-width, 240px);
+  right: var(--layout-panel-width, 0px);
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--layout-modal-z, 60);
 }
 
 .modal-content {

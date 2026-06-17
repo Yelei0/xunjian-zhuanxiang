@@ -1,5 +1,5 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :style="{ '--layout-panel-width': store.panelOpen.value ? store.panelWidth.value + 'px' : '0px' }">
     <!-- 顶部栏 -->
     <header class="topbar">
       <div class="topbar-left">
@@ -123,6 +123,50 @@
           </button>
         </div>
         <div class="panel-list">
+          <!-- 页面概览 -->
+          <div v-if="store.currentPageData.value" class="panel-overview">
+            <div class="panel-overview-title">{{ store.currentPageData.value.title }}</div>
+            <div class="panel-overview-meta">
+              <span class="panel-overview-type">{{ store.currentPageData.value.type }}</span>
+              <span v-if="store.currentPageData.value.menuPath" class="panel-overview-path">{{ store.currentPageData.value.menuPath }}</span>
+            </div>
+            <div v-if="store.currentPageData.value.summary" class="panel-overview-summary">
+              {{ store.currentPageData.value.summary }}
+            </div>
+          </div>
+
+          <!-- 页面级说明 -->
+          <div
+            v-for="(section, sectionIndex) in store.pageSectionsForCurrentPage.value"
+            :key="section.title"
+            class="panel-section"
+          >
+            <div class="panel-section-title" :title="canEditPrd ? '三击编辑' : ''" @click="handleSectionTitleClick($event, section, sectionIndex)">
+              {{ section.title }}
+            </div>
+            <div v-if="isEditingSection(section.title)" class="panel-editor">
+              <textarea v-model="editingDraft" class="panel-editor-input" rows="10"></textarea>
+              <div class="panel-editor-actions">
+                <span class="panel-editor-status" :class="{ error: editError }">{{ editStatus }}</span>
+                <button class="panel-editor-btn" :disabled="savingEdit" @click="cancelPrdEdit">取消</button>
+                <button class="panel-editor-btn primary" :disabled="savingEdit" @click="savePrdEdit">保存</button>
+              </div>
+            </div>
+            <div v-else class="panel-section-body" v-html="renderMd(section.content)"></div>
+          </div>
+
+          <!-- 警告 -->
+          <div v-if="store.currentPageWarnings.value.length" class="panel-warnings">
+            <div
+              v-for="(warning, i) in store.currentPageWarnings.value"
+              :key="i"
+              class="panel-warning"
+            >
+              {{ warning }}
+            </div>
+          </div>
+
+          <!-- 功能点列表 -->
           <div
             v-for="req in store.requirementsForCurrentPage.value"
             :key="req.id"
@@ -133,10 +177,20 @@
           >
             <div class="panel-item-head">
               <span class="panel-item-badge">{{ req.id }}</span>
-              <span class="panel-item-title">{{ req.title }}</span>
+              <span class="panel-item-title" :title="canEditPrd ? '三击编辑' : ''" @click="handleRequirementTitleClick($event, req)">
+                {{ req.title }}
+              </span>
               <span v-if="req.type === 'modal'" class="panel-item-modal">弹窗</span>
             </div>
-            <div class="panel-item-body" v-html="renderMd(req.content)"></div>
+            <div v-if="isEditingRequirement(req.id)" class="panel-editor" @click.stop>
+              <textarea v-model="editingDraft" class="panel-editor-input" rows="12"></textarea>
+              <div class="panel-editor-actions">
+                <span class="panel-editor-status" :class="{ error: editError }">{{ editStatus }}</span>
+                <button class="panel-editor-btn" :disabled="savingEdit" @click="cancelPrdEdit">取消</button>
+                <button class="panel-editor-btn primary" :disabled="savingEdit" @click="savePrdEdit">保存</button>
+              </div>
+            </div>
+            <div v-else class="panel-item-body" v-html="renderMd(req.content)"></div>
             <div v-if="req.scenarios?.length" class="panel-scenarios">
               <button
                 v-for="scenario in req.scenarios"
@@ -168,8 +222,117 @@ import InspectionPoint from './pages/inspection-point/index.vue'
 import MobileInspection from './pages/mobile-inspection/index.vue'
 import AnnotationOverlay from './composables/AnnotationOverlay.vue'
 import { getAnnotationStore } from './composables/useAnnotationStore'
+import type { ParsedPrdSection, ParsedRequirement } from './composables/useAnnotationStore'
 
 const store = getAnnotationStore()
+const canEditPrd = import.meta.env.DEV
+const editingKey = ref('')
+const editingDraft = ref('')
+const savingEdit = ref(false)
+const editStatus = ref('')
+const editError = ref(false)
+const editClickState = reactive({ key: '', count: 0, lastAt: 0 })
+
+function sectionEditKey(sectionIndex: number) {
+  return `section:${sectionIndex}`
+}
+
+function requirementEditKey(reqId: number) {
+  return `requirement:${reqId}`
+}
+
+function isEditingSection(title: string) {
+  const sectionIndex = store.pageSectionsForCurrentPage.value.findIndex(section => section.title === title)
+  return editingKey.value === sectionEditKey(sectionIndex)
+}
+
+function isEditingRequirement(reqId: number) {
+  return editingKey.value === requirementEditKey(reqId)
+}
+
+function isTripleTitleClick(event: MouseEvent, key: string) {
+  const now = Date.now()
+  if (event.detail >= 3) return true
+
+  if (editClickState.key === key && now - editClickState.lastAt < 600) {
+    editClickState.count += 1
+  } else {
+    editClickState.key = key
+    editClickState.count = 1
+  }
+  editClickState.lastAt = now
+
+  return editClickState.count >= 3
+}
+
+function handleSectionTitleClick(event: MouseEvent, section: ParsedPrdSection, sectionIndex: number) {
+  const key = sectionEditKey(sectionIndex)
+  if (!canEditPrd || !isTripleTitleClick(event, key)) return
+  event.stopPropagation()
+  editingKey.value = key
+  editingDraft.value = section.content
+  editStatus.value = ''
+  editError.value = false
+}
+
+function handleRequirementTitleClick(event: MouseEvent, req: ParsedRequirement) {
+  const key = requirementEditKey(req.id)
+  if (!canEditPrd || !isTripleTitleClick(event, key)) return
+  event.stopPropagation()
+  editingKey.value = key
+  editingDraft.value = req.content
+  editStatus.value = ''
+  editError.value = false
+}
+
+function cancelPrdEdit() {
+  editingKey.value = ''
+  editingDraft.value = ''
+  editStatus.value = ''
+  editError.value = false
+}
+
+async function savePrdEdit() {
+  if (!editingKey.value || savingEdit.value) return
+
+  const [kind, id] = editingKey.value.split(':')
+  const payload: Record<string, unknown> = {
+    page: store.currentPage.value,
+    content: editingDraft.value,
+  }
+
+  if (kind === 'section') {
+    payload.kind = 'section'
+    payload.sectionIndex = Number(id)
+  } else {
+    payload.kind = 'requirement'
+    payload.reqId = Number(id)
+  }
+
+  savingEdit.value = true
+  editStatus.value = '保存中...'
+  editError.value = false
+
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}__prd/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || '保存失败')
+
+    store.replacePrdMarkdown(data.markdown)
+    editingKey.value = ''
+    editingDraft.value = ''
+    editStatus.value = ''
+  } catch (error) {
+    editError.value = true
+    editStatus.value = error instanceof Error ? error.message : '保存失败'
+  } finally {
+    savingEdit.value = false
+  }
+}
 
 // ===== 菜单树 =====
 interface MenuItem {
@@ -278,14 +441,71 @@ onMounted(() => {
 
 // Markdown render
 function renderMd(md: string): string {
-  return md
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^(.+)$/gm, '<p>$1</p>')
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+
+  const inlineMd = (value: string) =>
+    escapeHtml(value)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+
+  const lines = md.split('\n')
+  const result: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const rawLine = lines[i]
+    const line = rawLine.trim()
+
+    if (!line) {
+      i++
+      continue
+    }
+
+    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/)
+    if (headingMatch) {
+      const level = Math.min(6, Math.max(3, headingMatch[1].length))
+      result.push(`<h${level} class="md-heading md-heading-${level}">${inlineMd(headingMatch[2])}</h${level}>`)
+      i++
+      continue
+    }
+
+    if (line.includes('|') && i + 1 < lines.length && /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim())) {
+      const headers = line.split('|').filter(c => c.trim() !== '')
+      let table = '<div class="md-table-wrap"><table class="md-table"><thead><tr>'
+      for (const h of headers) table += `<th>${inlineMd(h.trim())}</th>`
+      table += '</tr></thead><tbody>'
+      i += 2
+      while (i < lines.length && lines[i].trim().includes('|')) {
+        const cells = lines[i].trim().split('|').filter(c => c.trim() !== '')
+        table += '<tr>'
+        for (const c of cells) table += `<td>${inlineMd(c.trim())}</td>`
+        table += '</tr>'
+        i++
+      }
+      table += '</tbody></table></div>'
+      result.push(table)
+      continue
+    }
+
+    if (line.startsWith('- ')) {
+      const items: string[] = []
+      while (i < lines.length && lines[i].trim().startsWith('- ')) {
+        items.push(`<li>${inlineMd(lines[i].trim().slice(2))}</li>`)
+        i++
+      }
+      result.push(`<ul>${items.join('')}</ul>`)
+      continue
+    }
+
+    result.push(`<p>${inlineMd(line)}</p>`)
+    i += 1
+  }
+
+  return result.join('')
 }
 
 // Panel resize
@@ -391,9 +611,55 @@ function startResize(e: MouseEvent) {
 .panel-item-body :deep(strong) { font-weight: 700; color: #0F172A; }
 .panel-item-body :deep(li) { margin: 2px 0 2px 14px; }
 .panel-item-body :deep(p) { margin: 0 0 6px; }
+.panel-item-body :deep(.md-heading) { margin: 10px 0 6px; font-weight: 800; color: #0F172A; line-height: 1.35; }
+.panel-item-body :deep(.md-heading-4), .panel-item-body :deep(.md-heading-5), .panel-item-body :deep(.md-heading-6) { font-size: 12px; }
+.panel-editor { margin-top: 8px; }
+.panel-editor-input { width: 100%; min-height: 180px; resize: vertical; border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px; font-size: 12px; line-height: 1.55; color: #0F172A; background: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; box-sizing: border-box; }
+.panel-editor-input:focus { outline: none; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.panel-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.panel-editor-status { flex: 1; font-size: 11px; color: #64748B; }
+.panel-editor-status.error { color: #DC2626; }
+.panel-editor-btn { border: 1px solid #CBD5E1; background: #fff; color: #334155; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.panel-editor-btn:hover:not(:disabled) { border-color: #94A3B8; background: #F8FAFC; }
+.panel-editor-btn.primary { border-color: #2563EB; background: #2563EB; color: #fff; }
+.panel-editor-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .panel-scenarios { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .panel-scenario-btn { border: 1px solid rgba(239,68,68,0.25); background: #FEF2F2; color: #DC2626; border-radius: 6px; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .panel-scenario-btn:hover { background: #FEE2E2; border-color: rgba(239,68,68,0.45); }
+
+/* 页面概览 */
+.panel-overview { padding: 14px 14px 10px; border-bottom: 1px solid #E2E8F0; }
+.panel-overview-title { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
+.panel-overview-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.panel-overview-type { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #EFF6FF; color: #2563EB; }
+.panel-overview-path { font-size: 11px; color: #94A3B8; }
+.panel-overview-summary { font-size: 12px; color: #475569; line-height: 1.6; }
+
+/* 页面级说明 */
+.panel-section { padding: 10px 14px; border-bottom: 1px solid #F1F5F9; }
+.panel-section-title { font-size: 11px; font-weight: 700; color: #0F172A; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.panel-section-body { font-size: 12px; line-height: 1.65; color: #475569; }
+.panel-section-body :deep(strong) { font-weight: 700; color: #0F172A; }
+.panel-section-body :deep(p) { margin: 0 0 4px; }
+.panel-section-body :deep(.md-heading) { margin: 8px 0 6px; font-size: 12px; font-weight: 800; color: #0F172A; line-height: 1.35; }
+
+/* 警告 */
+.panel-warnings { padding: 8px 14px; }
+.panel-warning { font-size: 11px; color: #D97706; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px; padding: 6px 10px; margin-bottom: 4px; }
+
+/* Markdown 表格 */
+.panel-section-body :deep(.md-table-wrap),
+.panel-item-body :deep(.md-table-wrap) { overflow-x: auto; max-width: 100%; margin: 6px 0 10px; -webkit-overflow-scrolling: touch; }
+.panel-section-body :deep(.md-table),
+.panel-item-body :deep(.md-table) { width: max-content; min-width: 100%; border-collapse: collapse; table-layout: auto; font-size: 11px; line-height: 1.35; }
+.panel-section-body :deep(.md-table th),
+.panel-section-body :deep(.md-table td),
+.panel-item-body :deep(.md-table th),
+.panel-item-body :deep(.md-table td) { padding: 5px 8px; border: 1px solid #E2E8F0; text-align: left; vertical-align: top; white-space: nowrap; word-break: keep-all; }
+.panel-section-body :deep(.md-table th),
+.panel-item-body :deep(.md-table th) { background: #F8FAFC; font-weight: 700; color: #0F172A; }
+.panel-section-body :deep(.md-table td),
+.panel-item-body :deep(.md-table td) { color: #475569; }
 </style>
 
 <style>

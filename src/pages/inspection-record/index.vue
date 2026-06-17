@@ -174,7 +174,7 @@
               </div>
               <div class="route-map route-map-clickable" @click="openRoutePreview(currentDetailRecord)">
                 <img
-                  :src="currentDetailRecord.parkArea === '接收站' ? '/images/jieshouzhan.jpg' : '/images/park.jpg'"
+                  :src="currentDetailRecord.parkArea === '接收站' ? stationImage : parkImage"
                   alt="巡检路线图"
                   class="map-image"
                 />
@@ -298,7 +298,7 @@
         <div class="modal-body">
           <div v-if="currentRouteRecord" class="route-map route-map-large">
             <img
-              :src="currentRouteRecord.parkArea === '接收站' ? '/images/jieshouzhan.jpg' : '/images/park.jpg'"
+              :src="currentRouteRecord.parkArea === '接收站' ? stationImage : parkImage"
               alt="巡检路线图"
               class="map-image"
             />
@@ -358,6 +358,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+
+const assetUrl = (file: string) => `${import.meta.env.BASE_URL}images/${file}`
+const parkImage = assetUrl('park.jpg')
+const stationImage = assetUrl('jieshouzhan.jpg')
 
 interface RectificationInfo {
   checkedInAt: string
@@ -446,7 +450,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-01 08:00:00',
         pointStatus: 'normal',
         inspectionRemark: '无异常',
-        photos: ['/images/park.jpg'],
+        photos: [parkImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
       {
@@ -455,7 +459,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-01 08:12:00',
         pointStatus: 'normal',
         inspectionRemark: '无异常',
-        photos: ['/images/park.jpg'],
+        photos: [parkImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
       {
@@ -464,7 +468,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-01 08:25:00',
         pointStatus: 'normal',
         inspectionRemark: '无异常',
-        photos: ['/images/park.jpg'],
+        photos: [parkImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
     ],
@@ -484,7 +488,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-02 09:00:00',
         pointStatus: 'normal',
         inspectionRemark: '待提交',
-        photos: ['/images/park.jpg'],
+        photos: [parkImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
       {
@@ -493,7 +497,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-02 09:16:00',
         pointStatus: 'normal',
         inspectionRemark: '待提交',
-        photos: ['/images/park.jpg'],
+        photos: [parkImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
     ],
@@ -513,7 +517,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-03 07:30:00',
         pointStatus: 'abnormal',
         inspectionRemark: '灭火器压力不足',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
       {
@@ -522,7 +526,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-03 07:42:00',
         pointStatus: 'abnormal',
         inspectionRemark: '园区东侧灭火器罩破损',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
       {
@@ -531,7 +535,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-03 07:50:00',
         pointStatus: 'normal',
         inspectionRemark: '无异常',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
     ],
@@ -551,11 +555,11 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-04 10:20:00',
         pointStatus: 'rectified',
         inspectionRemark: '防撞桩松动',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: {
           checkedInAt: '2026-01-04 11:15:00',
           remark: '已完成加固处理并复检正常',
-          photos: ['/images/jieshouzhan.jpg'],
+          photos: [stationImage],
         },
       },
       {
@@ -564,11 +568,11 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-04 10:36:00',
         pointStatus: 'rectified',
         inspectionRemark: '地面警示线模糊',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: {
           checkedInAt: '2026-01-04 11:32:00',
           remark: '已完成补刷并复核通过',
-          photos: ['/images/jieshouzhan.jpg'],
+          photos: [stationImage],
         },
       },
       {
@@ -577,7 +581,7 @@ const tableData = ref<InspectionRecord[]>([
         checkInTime: '2026-01-04 10:48:00',
         pointStatus: 'normal',
         inspectionRemark: '无异常',
-        photos: ['/images/jieshouzhan.jpg'],
+        photos: [stationImage],
         rectification: { checkedInAt: '', remark: '', photos: [] },
       },
     ],
@@ -1106,12 +1110,15 @@ input[type="checkbox"] {
 
 .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: var(--layout-topbar-height, 60px);
+  left: var(--layout-sidebar-width, 240px);
+  right: var(--layout-panel-width, 0px);
+  bottom: 0;
   background: rgba(15, 23, 42, 0.48);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--layout-modal-z, 60);
   padding: 24px;
 }
 

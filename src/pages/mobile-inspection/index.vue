@@ -106,6 +106,12 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <span class="mh-title">巡检任务</span>
+          <button class="mh-icon-btn" data-req-id="8" title="点位编辑" @click="openPointEditModal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
         </div>
 
         <!-- 点位进度条 -->
@@ -290,7 +296,7 @@
 
         <!-- 地图 -->
         <div class="map-container" data-req-id="2">
-          <img :src="mapArea === '接收站' ? '/images/jieshouzhan.jpg' : '/images/park.jpg'" alt="地图" class="map-image" />
+          <img :src="mapArea === '接收站' ? stationImage : parkImage" alt="地图" class="map-image" />
           <!-- SVG 点位标记 -->
           <svg class="map-svg" viewBox="0 0 600 500">
             <defs>
@@ -349,7 +355,7 @@
           <div class="detail-section" data-req-id="2">
             <h4 class="section-title">巡检路线</h4>
             <div class="detail-map" @click="openRoutePreview">
-              <img :src="detailRecord.area === '接收站' ? '/images/jieshouzhan.jpg' : '/images/park.jpg'" alt="地图" class="map-image" />
+              <img :src="detailRecord.area === '接收站' ? stationImage : parkImage" alt="地图" class="map-image" />
               <svg class="map-svg" viewBox="0 0 600 500">
                 <polyline
                   v-if="detailRoutePath.length > 1"
@@ -491,7 +497,7 @@
       <div v-if="showRoutePreview && detailRecord" class="preview-overlay" @click.self="showRoutePreview = false">
         <div class="route-preview-box">
           <button class="preview-close" @click="showRoutePreview = false">×</button>
-          <img :src="detailRecord.area === '接收站' ? '/images/jieshouzhan.jpg' : '/images/park.jpg'" alt="巡检路线大图" class="preview-map-image" />
+          <img :src="detailRecord.area === '接收站' ? stationImage : parkImage" alt="巡检路线大图" class="preview-map-image" />
           <svg class="preview-map-svg" viewBox="0 0 600 500">
             <polyline
               v-if="detailRoutePath.length > 1"
@@ -524,6 +530,61 @@
           <img :src="previewPhoto" alt="点位照片大图" />
         </div>
       </div>
+
+      <div v-if="showPointEditModal" class="preview-overlay" @click.self="cancelPointEdit">
+        <div class="point-edit-modal" data-req-id="8">
+          <div class="point-edit-head">
+            <div>
+              <h3>点位编辑</h3>
+              <p>调整本次巡检任务点位</p>
+            </div>
+            <button class="point-edit-close" @click="cancelPointEdit">×</button>
+          </div>
+          <div class="point-edit-body">
+            <div class="point-select-tips">点击点位行即可选中或取消，已选点位会进入本次巡检任务。</div>
+            <div class="point-edit-list">
+              <button
+                v-for="pt in editableTaskPoints"
+                :key="pt.id"
+                type="button"
+                class="point-row"
+                :class="{ selected: isEditPointSelected(pt.id) }"
+                @click="toggleEditPoint(pt.id)"
+              >
+                <span class="point-row-name">{{ pt.name }}</span>
+                <span class="point-row-state">{{ isEditPointSelected(pt.id) ? '已选中' : '点击选择' }}</span>
+              </button>
+            </div>
+            <div v-if="editSelectedPointItems.length" class="point-selected-list">
+              <button
+                v-for="pt in editSelectedPointItems"
+                :key="pt.id"
+                type="button"
+                class="point-selected-chip"
+                @click="toggleEditPoint(pt.id)"
+              >
+                {{ pt.name }}
+                <span class="point-selected-chip-close">×</span>
+              </button>
+            </div>
+            <div v-else class="point-edit-empty">至少保留 1 个巡检点位</div>
+          </div>
+          <div class="point-edit-actions">
+            <button class="btn-ghost" @click="cancelPointEdit">取消</button>
+            <button class="btn-brand" @click="savePointEdit">保存点位</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="phoneDialog.visible" class="preview-overlay phone-dialog-overlay" @click.self="closePhoneDialog">
+        <div class="phone-dialog">
+          <h3>{{ phoneDialog.title }}</h3>
+          <p>{{ phoneDialog.message }}</p>
+          <div class="phone-dialog-actions">
+            <button class="btn-brand" @click="closePhoneDialog">{{ phoneDialog.confirmText }}</button>
+          </div>
+        </div>
+      </div>
     </PhoneFrame>
   </div>
 </template>
@@ -532,6 +593,10 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import PhoneFrame from '../../../skills/phone-frame/PhoneFrame.vue'
 import { getAnnotationStore } from '../../composables/useAnnotationStore'
+
+const assetUrl = (file: string) => `${import.meta.env.BASE_URL}images/${file}`
+const parkImage = assetUrl('park.jpg')
+const stationImage = assetUrl('jieshouzhan.jpg')
 
 const store = getAnnotationStore()
 
@@ -667,13 +732,41 @@ interface InspectionRecord {
 const taskPoints = ref<TaskPoint[]>([])
 const currentPointId = ref<number | null>(null)
 const currentTaskPoint = computed(() => taskPoints.value.find(p => p.id === currentPointId.value) || null)
+const showPointEditModal = ref(false)
+const editPointIds = ref<string[]>([])
 const MIN_REMARK_LENGTH = 2
-const photoPlaceholders = ['/images/park.jpg', '/images/jieshouzhan.jpg']
+const photoPlaceholders = [parkImage, stationImage]
 const quickRemarkOptions = ['存在异常', '卫生问题', '设备异样']
 const inspectionStatusOptions = [
   { label: '正常', value: 'normal' as const },
   { label: '异常', value: 'abnormal' as const },
 ]
+const phoneDialog = reactive({
+  visible: false,
+  title: '提示',
+  message: '',
+  confirmText: '知道了',
+  onClose: null as null | (() => void)
+})
+
+function showPhoneDialog(
+  message: string,
+  options: { title?: string; confirmText?: string; onClose?: () => void } = {}
+) {
+  phoneDialog.visible = true
+  phoneDialog.title = options.title || '提示'
+  phoneDialog.message = message
+  phoneDialog.confirmText = options.confirmText || '知道了'
+  phoneDialog.onClose = options.onClose || null
+}
+
+function closePhoneDialog() {
+  const onClose = phoneDialog.onClose
+  phoneDialog.visible = false
+  phoneDialog.message = ''
+  phoneDialog.onClose = null
+  if (onClose) onClose()
+}
 
 function isPointComplete(point: TaskPoint) {
   return point.checkedIn && point.photos.length > 0 && point.remark.trim().length >= MIN_REMARK_LENGTH
@@ -705,6 +798,14 @@ const hasNextPoint = computed(() => {
 const canFinishInspection = computed(() =>
   taskPoints.value.length > 0 &&
   taskPoints.value.every(isPointComplete)
+)
+
+const editableTaskPoints = computed(() => allPoints[startForm.area as keyof typeof allPoints] || [])
+
+const editSelectedPointItems = computed(() =>
+  editPointIds.value
+    .map(id => editableTaskPoints.value.find(p => String(p.id) === id))
+    .filter((p): p is { id: number; name: string; x: number; y: number } => Boolean(p))
 )
 
 const verifyStatusText = computed(() => {
@@ -778,10 +879,68 @@ function startInspection() {
   goTo('task')
 }
 
+function openPointEditModal() {
+  editPointIds.value = taskPoints.value.map(point => String(point.id))
+  showPointEditModal.value = true
+}
+
+function cancelPointEdit() {
+  showPointEditModal.value = false
+  editPointIds.value = []
+}
+
+function isEditPointSelected(pointId: number) {
+  return editPointIds.value.includes(String(pointId))
+}
+
+function toggleEditPoint(pointId: number) {
+  const id = String(pointId)
+  if (isEditPointSelected(pointId)) {
+    editPointIds.value = editPointIds.value.filter(item => item !== id)
+    return
+  }
+  editPointIds.value = [...editPointIds.value, id]
+}
+
+function savePointEdit() {
+  if (editPointIds.value.length === 0) {
+    showPhoneDialog('至少保留 1 个巡检点位')
+    return
+  }
+
+  const existing = new Map(taskPoints.value.map(point => [point.id, point]))
+  taskPoints.value = editPointIds.value
+    .map(id => {
+      const pointId = Number(id)
+      const saved = existing.get(pointId)
+      if (saved) return saved
+      const point = editableTaskPoints.value.find(item => item.id === pointId)
+      if (!point) return null
+      return {
+        id: point.id,
+        name: point.name,
+        verified: false,
+        verifyError: false,
+        checkedIn: false,
+        checkedInAt: null,
+        inspectionStatus: 'normal' as const,
+        photos: [],
+        remark: ''
+      }
+    })
+    .filter((point): point is TaskPoint => Boolean(point))
+
+  if (!taskPoints.value.some(point => point.id === currentPointId.value)) {
+    currentPointId.value = taskPoints.value[0]?.id || null
+  }
+  startForm.points = taskPoints.value.map(point => String(point.id))
+  cancelPointEdit()
+}
+
 function switchPoint(pointId: number) { currentPointId.value = pointId }
 function nextPoint() {
   if (!isCurrentPointComplete.value) {
-    alert('请先完成当前点位的打卡、点位照片和巡检情况')
+    showPhoneDialog('请先完成当前点位的打卡、点位照片和巡检情况')
     return
   }
   if (!currentTaskPoint.value) return
@@ -807,13 +966,13 @@ function simulateScanError() {
   currentTaskPoint.value.inspectionStatus = 'abnormal'
   currentTaskPoint.value.photos = []
   currentTaskPoint.value.remark = ''
-  alert('打卡异常，点位码与当前点位不对应')
+  showPhoneDialog('打卡异常，点位码与当前点位不对应', { title: '打卡异常' })
 }
 
 function setCurrentInspectionStatus(status: 'normal' | 'abnormal') {
   if (!currentTaskPoint.value) return
   if (!canEditInspectionContent.value) {
-    alert('请先完成点位打卡')
+    showPhoneDialog('请先完成点位打卡')
     return
   }
   currentTaskPoint.value.inspectionStatus = status
@@ -822,7 +981,7 @@ function setCurrentInspectionStatus(status: 'normal' | 'abnormal') {
 function appendQuickRemark(text: string) {
   if (!currentTaskPoint.value) return
   if (!canEditInspectionContent.value) {
-    alert('请先完成点位打卡')
+    showPhoneDialog('请先完成点位打卡')
     return
   }
 
@@ -836,18 +995,25 @@ function handleAnnotationScenario(event: Event) {
   if (detail.scenario === 'scan-error') simulateScanError()
 }
 
+function handleAnnotationModal(event: Event) {
+  const detail = (event as CustomEvent).detail
+  if (detail?.modalId === 'pointEditModal' && currentPage.value === 'task') openPointEditModal()
+}
+
 onMounted(() => {
   window.addEventListener('annotation:apply-scenario', handleAnnotationScenario)
+  window.addEventListener('annotation:trigger-modal', handleAnnotationModal)
 })
 
 onUnmounted(() => {
   window.removeEventListener('annotation:apply-scenario', handleAnnotationScenario)
+  window.removeEventListener('annotation:trigger-modal', handleAnnotationModal)
 })
 
 function takePhoto() {
   if (!currentTaskPoint.value) return
   if (!canEditInspectionContent.value) {
-    alert('请先完成点位打卡')
+    showPhoneDialog('请先完成点位打卡')
     return
   }
   if (currentTaskPoint.value.photos.length >= 6) return
@@ -872,11 +1038,13 @@ function formatTimeOnly(timestamp: number) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-function saveDraft() { alert('已暂存') }
+function saveDraft() {
+  showPhoneDialog('已暂存', { title: '暂存成功' })
+}
 
 function finishInspection() {
   if (!canFinishInspection.value) {
-    alert('请完成所有点位的打卡、点位照片和巡检情况后再提交')
+    showPhoneDialog('请完成所有点位的打卡、点位照片和巡检情况后再提交')
     return
   }
   // 添加到记录列表
@@ -908,11 +1076,16 @@ function finishInspection() {
   })
 
   if (hasAbnormalPoint) {
-    alert(`本次巡检${orderedTaskPoints.value.filter(p => p.inspectionStatus === 'abnormal').length}处异常，请整改`)
+    showPhoneDialog(`本次巡检${orderedTaskPoints.value.filter(p => p.inspectionStatus === 'abnormal').length}处异常，请整改`, {
+      title: '提交成功',
+      onClose: () => goTo('records')
+    })
   } else {
-    alert('巡检提交成功')
+    showPhoneDialog('巡检提交成功', {
+      title: '提交成功',
+      onClose: () => goTo('records')
+    })
   }
-  goTo('records')
 }
 
 // ========== 巡检记录 ==========
@@ -927,10 +1100,10 @@ const inspectionRecords = reactive([
     time: '2026-01-01 08:00:00',
     status: 'completed',
     points: [
-      { id: 1, name: '编组区', time: '2026-01-01 08:10:00', pointStatus: 'normal', status: '无异常', photos: ['/images/park.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 2, name: '综合楼', time: '2026-01-01 08:20:00', pointStatus: 'normal', status: '无异常', photos: ['/images/jieshouzhan.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 3, name: '仓库区', time: '2026-01-01 08:30:00', pointStatus: 'normal', status: '无异常', photos: ['/images/park.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 4, name: '南门岗', time: '2026-01-01 08:40:00', pointStatus: 'normal', status: '无异常', photos: ['/images/jieshouzhan.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 1, name: '编组区', time: '2026-01-01 08:10:00', pointStatus: 'normal', status: '无异常', photos: [parkImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 2, name: '综合楼', time: '2026-01-01 08:20:00', pointStatus: 'normal', status: '无异常', photos: [stationImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 3, name: '仓库区', time: '2026-01-01 08:30:00', pointStatus: 'normal', status: '无异常', photos: [parkImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 4, name: '南门岗', time: '2026-01-01 08:40:00', pointStatus: 'normal', status: '无异常', photos: [stationImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
     ]
   },
   {
@@ -941,8 +1114,8 @@ const inspectionRecords = reactive([
     time: '2026-01-02 09:00:00',
     status: 'draft',
     points: [
-      { id: 1, name: '编组区', time: '2026-01-02 09:10:00', pointStatus: 'normal', status: '无异常', photos: ['/images/park.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 2, name: '综合楼', time: '2026-01-02 09:20:00', pointStatus: 'normal', status: '无异常', photos: ['/images/jieshouzhan.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 1, name: '编组区', time: '2026-01-02 09:10:00', pointStatus: 'normal', status: '无异常', photos: [parkImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 2, name: '综合楼', time: '2026-01-02 09:20:00', pointStatus: 'normal', status: '无异常', photos: [stationImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
     ]
   },
   {
@@ -953,9 +1126,9 @@ const inspectionRecords = reactive([
     time: '2026-01-03 07:30:00',
     status: 'submitted',
     points: [
-      { id: 7, name: '泵房', time: '2026-01-03 07:40:00', pointStatus: 'normal', status: '无异常', photos: ['/images/jieshouzhan.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 8, name: '编组区', time: '2026-01-03 07:50:00', pointStatus: 'abnormal', status: '灭火器压力不足', photos: ['/images/park.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
-      { id: 9, name: '重车区', time: '2026-01-03 08:05:00', pointStatus: 'abnormal', status: '地面油污未清理', photos: ['/images/jieshouzhan.jpg'], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 7, name: '泵房', time: '2026-01-03 07:40:00', pointStatus: 'normal', status: '无异常', photos: [stationImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 8, name: '编组区', time: '2026-01-03 07:50:00', pointStatus: 'abnormal', status: '灭火器压力不足', photos: [parkImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
+      { id: 9, name: '重车区', time: '2026-01-03 08:05:00', pointStatus: 'abnormal', status: '地面油污未清理', photos: [stationImage], rectification: { checkedIn: false, checkedInAt: null, photos: [], remark: '' } },
     ]
   }
 ])
@@ -1126,7 +1299,7 @@ function openPhotoPreview(photo: string) {
 function finishRectification() {
   if (!detailRecord.value || !activeDetailPoint.value) return
   if (!canFinishRectification.value) {
-    alert('请先完成整改打卡、整改照片和整改情况')
+    showPhoneDialog('请先完成整改打卡、整改照片和整改情况')
     return
   }
 
@@ -1135,7 +1308,7 @@ function finishRectification() {
   if (!abnormalLeft) {
     detailRecord.value.status = 'completed'
   }
-  alert('整改完成')
+  showPhoneDialog('整改完成', { title: '整改完成' })
 }
 </script>
 
@@ -1146,6 +1319,8 @@ function finishRectification() {
 .mh { display: flex; align-items: center; padding: 12px 14px; background: #fff; border-bottom: 1px solid #F1F5F9; gap: 8px; flex-shrink: 0; }
 .mh-back { background: none; border: none; cursor: pointer; color: #334155; padding: 4px; border-radius: 6px; display: flex; }
 .mh-title { flex: 1; font-size: 16px; font-weight: 700; color: #0F172A; }
+.mh-icon-btn { width: 34px; height: 34px; border: 1px solid #DBEAFE; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.mh-icon-btn:active { background: #DBEAFE; transform: translateY(1px); }
 
 /* ===== 首页 ===== */
 .page-home { display: flex; flex-direction: column; min-height: 100%; }
@@ -1311,10 +1486,24 @@ function finishRectification() {
 .detail-photo-grid { display: flex; gap: 6px; flex-wrap: wrap; }
 .detail-photo-thumb { width: 54px; height: 54px; padding: 0; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; background: #F8FAFC; cursor: zoom-in; }
 .detail-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.preview-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,0.72); display: flex; align-items: center; justify-content: center; padding: 18px; }
-.route-preview-box { position: relative; width: min(92vw, 760px); aspect-ratio: 6 / 5; border-radius: 16px; overflow: hidden; background: #E5E7EB; box-shadow: 0 24px 80px rgba(0,0,0,0.35); }
+.preview-overlay { position: absolute; inset: 0; z-index: 40; background: rgba(15,23,42,0.72); display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
+.route-preview-box { position: relative; width: 100%; max-width: 330px; aspect-ratio: 6 / 5; border-radius: 16px; overflow: hidden; background: #E5E7EB; box-shadow: 0 24px 80px rgba(0,0,0,0.35); }
 .preview-map-image, .preview-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-.photo-preview-box { position: relative; max-width: min(92vw, 720px); max-height: 82vh; border-radius: 16px; overflow: hidden; background: #0F172A; box-shadow: 0 24px 80px rgba(0,0,0,0.35); }
-.photo-preview-box img { display: block; max-width: 100%; max-height: 82vh; object-fit: contain; }
+.photo-preview-box { position: relative; width: 100%; max-width: 330px; max-height: 82%; border-radius: 16px; overflow: hidden; background: #0F172A; box-shadow: 0 24px 80px rgba(0,0,0,0.35); }
+.photo-preview-box img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
 .preview-close { position: absolute; top: 10px; right: 10px; z-index: 2; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(15,23,42,0.78); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.point-edit-modal { width: 100%; max-width: 330px; max-height: 76%; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+.phone-dialog-overlay { padding: 22px; }
+.phone-dialog { width: 100%; max-width: 310px; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px rgba(0,0,0,0.35); padding: 20px; box-sizing: border-box; }
+.phone-dialog h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; color: #0F172A; text-align: center; }
+.phone-dialog p { margin: 0; color: #475569; font-size: 14px; line-height: 1.6; text-align: center; white-space: pre-wrap; word-break: break-word; }
+.phone-dialog-actions { display: flex; margin-top: 18px; }
+.point-edit-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 12px; border-bottom: 1px solid #F1F5F9; }
+.point-edit-head h3 { margin: 0; font-size: 17px; font-weight: 800; color: #0F172A; }
+.point-edit-head p { margin: 4px 0 0; font-size: 12px; color: #94A3B8; }
+.point-edit-close { width: 28px; height: 28px; border: none; border-radius: 8px; background: #F1F5F9; color: #64748B; font-size: 20px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+.point-edit-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.point-edit-list { display: flex; flex-direction: column; gap: 8px; }
+.point-edit-empty { padding: 10px 12px; border-radius: 10px; background: #F8FAFC; color: #94A3B8; font-size: 12px; text-align: center; }
+.point-edit-actions { display: flex; gap: 10px; padding: 12px 16px 16px; border-top: 1px solid #F1F5F9; }
 </style>

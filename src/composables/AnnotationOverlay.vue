@@ -81,7 +81,7 @@ onUnmounted(() => clearInterval(timer))
   right: 0;
   bottom: 0;
   pointer-events: none;
-  z-index: 50;
+  z-index: 70;
 }
 
 .anno-badge {
