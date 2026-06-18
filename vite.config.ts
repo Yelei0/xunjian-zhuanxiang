@@ -21,7 +21,7 @@ function readJsonBody(req: import('node:http').IncomingMessage): Promise<any> {
 }
 
 export default defineConfig({
-  base: process.env.VERCEL ? '/' : '/xunjian-zhuanxiang/',
+  base: process.env.VERCEL ? '/' : './',
   plugins: [
     vue(),
     {
